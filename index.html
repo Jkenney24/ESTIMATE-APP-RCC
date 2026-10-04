@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Red Cardinal Company - Custom Sign Price Estimator</title>
+  <style>
+    /* Modern Theme CSS Variables */
+    :root {
+      --bg-main: #fcf8f8;
+      --bg-card: #ffffff;
+      --bg-secondary: #f4ecec;
+      --border: #e8d5d5;
+      --primary: #c9182b;
+      --primary-hover: #a61021;
+      --accent: #d92335;
+      --accent-glow: rgba(201, 24, 43, 0.12);
+      --text: #2d181a;
+      --text-muted: #7d6365;
+      --radius: 14px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg-main: #1a0d0e;
+      --bg-card: #281517;
+      --bg-secondary: #361d20;
+      --border: #4d2a2e;
+      --primary: #e63946;
+      --primary-hover: #ff4d5a;
+      --accent: #ff4d5a;
+      --accent-glow: rgba(230, 57, 70, 0.2);
+      --text: #fceeed;
+      --text-muted: #c4a2a5;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font);
+      transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background Motif Elements */
+    .bg-motif {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.04;
+      background-image: radial-gradient(#c9182b 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    .motif-floating {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.08;
+      font-size: 2.5rem;
+      animation: float 12s infinite ease-in-out;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(8deg); }
+    }
+
+    /* Header Navigation */
+    header {
+      position: relative;
+      z-index: 10;
+      background-color: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      sticky: top;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-logo {
+      font-size: 1.6rem;
+      line-height: 1;
+    }
+
+    .brand-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--primary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .theme-toggle {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem 0.85rem;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    /* Main SPA Container */
+    main {
+      position: relative;
+      z-index: 5;
+      flex: 1;
+      max-width: 1000px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+    }
+
+    /* Tabs Bar */
+    .tab-bar {
+      display: flex;
+      gap: 0.5rem;
+      background-color: var(--bg-secondary);
+      padding: 0.35rem;
+      border-radius: var(--radius);
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.75rem;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .tab-btn.active {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    /* View Animations */
+    .view {
+      display: none;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .view.active {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* Cards */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Shape Selector Tabs */
+    .shape-selector {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5rem;
+      background: var(--bg-secondary);
+      padding: 0.25rem;
+      border-radius: 8px;
+    }
+
+    .shape-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .shape-btn.active {
+      background: var(--bg-card);
+      color: var(--primary);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    /* Form Controls */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input, select, textarea {
+      background-color: var(--bg-main);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    /* Buttons */
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      padding: 0.85rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-secondary);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border);
+    }
+
+    .btn-danger {
+      background-color: transparent;
+      border: 1px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .btn-danger:hover {
+      background-color: var(--primary);
+      color: white;
+    }
+
+    /* Live Output Box */
+    .price-card {
+      background: linear-gradient(135deg, var(--primary), #800e1b);
+      color: white;
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .price-main {
+      text-align: center;
+    }
+
+    .price-value {
+      font-size: 2.5rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .price-sub {
+      font-size: 0.85rem;
+      opacity: 0.85;
+    }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      padding-top: 0.4rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* Saved Cards / History */
+    .estimate-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .estimate-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
+    }
+
+    .estimate-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .badge {
+      background: var(--accent-glow);
+      color: var(--primary);
+      padding: 0.2rem 0.6rem;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: var(--primary);
+      color: white;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Cardinal & Heart Floating Motifs -->
+  <div class="bg-motif"></div>
+  <div class="motif-floating" style="top: 10%; left: 5%;">🐦</div>
+  <div class="motif-floating" style="top: 70%; left: 88%; animation-delay: -4s;">❤️</div>
+  <div class="motif-floating" style="top: 40%; left: 92%; animation-delay: -7s;">🐦</div>
+  <div class="motif-floating" style="top: 80%; left: 8%; animation-delay: -2s;">❤️</div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span class="brand-logo">🐦</span>
+      <div>
+        <div class="brand-title">Red Cardinal Company</div>
+        <small style="font-size:0.75rem; color:var(--text-muted);">Custom Signs & Woodcraft</small>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">🌙</span> <span id="theme-text">Dark</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main SPA Container -->
+  <main>
+    <!-- Navigation Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchView('estimator-view', this)">
+        <span>📐 Price Estimator</span>
+      </button>
+      <button class="tab-btn" onclick="switchView('history-view', this)">
+        <span>📁 Saved Quotes (<span id="saved-count">0</span>)</span>
+      </button>
+    </div>
+
+    <!-- LEVEL 1: ESTIMATOR TOOL -->
+    <section id="estimator-view" class="view active">
+      <div class="grid">
+        
+        <!-- Inputs Card -->
+        <div class="card">
+          <div class="card-title">
+            <span>Piece Specifications</span>
+            <span class="badge">$0.55 / sq in</span>
+          </div>
+
+          <!-- Shape Selection -->
+          <div class="form-group">
+            <label>Select Piece Shape</label>
+            <div class="shape-selector">
+              <button class="shape-btn active" onclick="setShape('rectangle', this)">Rectangle</button>
+              <button class="shape-btn" onclick="setShape('circle', this)">Circle</button>
+              <button class="shape-btn" onclick="setShape('irregular', this)">Custom/Irregular</button>
+            </div>
+          </div>
+
+          <!-- Dynamic Shape Dimension Fields -->
+          <div id="shape-inputs">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="dim-width">Width (Inches)</label>
+                <input type="number" id="dim-width" value="12" min="1" step="0.5">
+              </div>
+              <div class="form-group">
+                <label for="dim-height">Height (Inches)</label>
+                <input type="number" id="dim-height" value="18" min="1" step="0.5">
+              </div>
+            </div>
+          </div>
+
+          <!-- Finish / Addons -->
+          <div class="form-row">
+            <div class="form-group">
+              <label for="finish-type">Finish Level</label>
+              <select id="finish-type">
+                <option value="1.0">Standard Stained Wood</option>
+                <option value="1.15">Hand-Painted Accents (+15%)</option>
+                <option value="1.25">Outdoor Protective Sealant (+25%)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="mounting-type">Mounting Hardware</label>
+              <select id="mounting-type">
+                <option value="0">Standard Sawtooth (Free)</option>
+                <option value="15">Heavy Duty French Cleat (+$15)</option>
+                <option value="25">Carved Table Top Stand (+$25)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Customer Contact Form Section -->
+          <div style="border-top: 1px solid var(--border); padding-top: 1rem;" class="form-group">
+            <label for="cust-name">Customer Name</label>
+            <input type="text" id="cust-name" placeholder="e.g. Sarah Jenkins">
+          </div>
+          <div class="form-group">
+            <label for="cust-notes">Design / Carving Notes</label>
+            <input type="text" id="cust-notes" placeholder="e.g. Welcome Sign with Cardinal Motif">
+          </div>
+
+          <button class="btn" onclick="saveEstimate()">💾 Save Quote Entry</button>
+        </div>
+
+        <!-- Price Display Card -->
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <div class="price-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <small style="opacity:0.8; font-weight:600;">ESTIMATED PRICE</small>
+              <span>❤️ Red Cardinal</span>
+            </div>
+            <div class="price-main">
+              <div class="price-value" id="total-price">$118.80</div>
+              <div class="price-sub" id="area-display">216 sq. inches total</div>
+            </div>
+            
+            <div class="detail-row">
+              <span>Base Rate ($0.55/sq in)</span>
+              <strong id="base-price">$118.80</strong>
+            </div>
+            <div class="detail-row">
+              <span>Finish Modifier</span>
+              <strong id="finish-cost">None</strong>
+            </div>
+            <div class="detail-row">
+              <span>Hardware Addon</span>
+              <strong id="hardware-cost">$0.00</strong>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Quick Actions</div>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Quickly copy the active live calculation to your clipboard without saving it to history.</p>
+            <button class="btn btn-secondary" onclick="copyCurrentQuoteToClipboard()">📋 Copy Quote Text to Clipboard</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- LEVEL 2: SAVED QUOTES HISTORY -->
+    <section id="history-view" class="view">
+      <div class="card">
+        <div class="card-title">
+          <span>Saved Customer Estimates</span>
+          <button class="btn btn-danger" style="padding:0.4rem 0.8rem; font-size:0.8rem;" onclick="clearAllEstimates()">Clear All</button>
+        </div>
+
+        <div id="estimates-container" class="grid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast">Copied to clipboard!</div>
+
+  <script>
+    // State Variables
+    let currentShape = 'rectangle';
+    let savedEstimates = JSON.parse(localStorage.getItem('red_cardinal_quotes') || '[]');
+
+    document.addEventListener('DOMContentLoaded', () => {
+      setupInputs();
+      calculateEstimate();
+      renderHistory();
+      
+      // Load saved theme preference
+      if (localStorage.getItem('red_cardinal_theme') === 'dark') {
+        setTheme(true);
+      }
+    });
+
+    function setupInputs() {
+      const inputs = ['dim-width', 'dim-height', 'finish-type', 'mounting-type'];
+      inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', calculateEstimate);
+      });
+    }
+
+    // SPA View Switcher
+    function switchView(viewId, btn) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+      document.getElementById(viewId).classList.add('active');
+      if (btn) btn.classList.add('active');
+    }
+
+    // Shape Selection Handler
+    function setShape(shape, btn) {
+      currentShape = shape;
+      document.querySelectorAll('.shape-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const container = document.getElementById('shape-inputs');
+      if (shape === 'rectangle') {
+        container.innerHTML = `
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dim-width">Width (Inches)</label>
+              <input type="number" id="dim-width" value="12" min="1" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="dim-height">Height (Inches)</label>
+              <input type="number" id="dim-height" value="18" min="1" step="0.5">
+            </div>
+          </div>`;
+      } else if (shape === 'circle') {
+        container.innerHTML = `
+          <div class="form-group">
+            <label for="dim-diameter">Diameter (Inches)</label>
+            <input type="number" id="dim-diameter" value="16" min="1" step="0.5">
+          </div>`;
+      } else if (shape === 'irregular') {
+        container.innerHTML = `
+          <div class="form-row">
+            <div class="form-group">
+              <label for="dim-max-w">Max Width (Inches)</label>
+              <input type="number" id="dim-max-w" value="14" min="1" step="0.5">
+            </div>
+            <div class="form-group">
+              <label for="dim-max-h">Max Height (Inches)</label>
+              <input type="number" id="dim-max-h" value="20" min="1" step="0.5">
+            </div>
+          </div>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Irregular shape calculates area using an ~80% bounding fill factor.</small>`;
+      }
+
+      setupInputs();
+      calculateEstimate();
+    }
+
+    // Core Calculation Logic ($0.55 per sq inch)
+    function calculateEstimate() {
+      let area = 0;
+      const rate = 0.55;
+
+      if (currentShape === 'rectangle') {
+        const w = parseFloat(document.getElementById('dim-width')?.value) || 0;
+        const h = parseFloat(document.getElementById('dim-height')?.value) || 0;
+        area = w * h;
+      } else if (currentShape === 'circle') {
+        const d = parseFloat(document.getElementById('dim-diameter')?.value) || 0;
+        const radius = d / 2;
+        area = Math.PI * Math.pow(radius, 2);
+      } else if (currentShape === 'irregular') {
+        const w = parseFloat(document.getElementById('dim-max-w')?.value) || 0;
+        const h = parseFloat(document.getElementById('dim-max-h')?.value) || 0;
+        area = (w * h) * 0.80; // Estimated 80% bounding area for custom cut edges
+      }
+
+      const finishMult = parseFloat(document.getElementById('finish-type').value) || 1.0;
+      const hardwareCost = parseFloat(document.getElementById('mounting-type').value) || 0;
+
+      const basePrice = area * rate;
+      const totalPrice = (basePrice * finishMult) + hardwareCost;
+
+      // Update UI
+      document.getElementById('total-price').textContent = `$${totalPrice.toFixed(2)}`;
+      document.getElementById('area-display').textContent = `${area.toFixed(1)} sq. inches total`;
+      document.getElementById('base-price').textContent = `$${basePrice.toFixed(2)}`;
+      document.getElementById('hardware-cost').textContent = `$${hardwareCost.toFixed(2)}`;
+      
+      const finishText = finishMult === 1.15 ? '+15%' : finishMult === 1.25 ? '+25%' : 'Standard';
+      document.getElementById('finish-cost').textContent = finishText;
+
+      return { area, basePrice, totalPrice, finishMult, hardwareCost };
+    }
+
+    // Save Quote Entry to History
+    function saveEstimate() {
+      const calc = calculateEstimate();
+      const customer = document.getElementById('cust-name').value.trim() || 'Guest Customer';
+      const notes = document.getElementById('cust-notes').value.trim() || 'Custom Woodcraft Piece';
+
+      const entry = {
+        id: Date.now(),
+        customer,
+        notes,
+        shape: currentShape.toUpperCase(),
+        area: calc.area.toFixed(1),
+        price: calc.totalPrice.toFixed(2),
+        date: new Date().toLocaleDateString()
+      };
+
+      savedEstimates.unshift(entry);
+      localStorage.setItem('red_cardinal_quotes', JSON.stringify(savedEstimates));
+
+      document.getElementById('cust-name').value = '';
+      document.getElementById('cust-notes').value = '';
+
+      renderHistory();
+      showToast('Quote saved to history!');
+    }
+
+    function renderHistory() {
+      document.getElementById('saved-count').textContent = savedEstimates.length;
+      const container = document.getElementById('estimates-container');
+
+      if (savedEstimates.length === 0) {
+        container.innerHTML = `<div class="empty-state">No saved customer quotes yet. Use the Price Estimator to generate quotes.</div>`;
+        return;
+      }
+
+      let html = '';
+      savedEstimates.forEach(item => {
+        const quoteText = `Red Cardinal Co. Quote for ${item.customer}: $${item.price} (${item.shape}, ${item.area} sq in) - Notes: ${item.notes}`;
+        html += `
+          <div class="estimate-card">
+            <div class="estimate-header">
+              <span>${item.customer}</span>
+              <span class="badge">$${item.price}</span>
+            </div>
+            <p style="font-size:0.85rem; color:var(--text-muted);">${item.notes}</p>
+            <div style="font-size:0.75rem; color:var(--text-muted); display:flex; justify-style:space-between;">
+              <span>Shape: ${item.shape} (${item.area} sq in)</span>
+              <span>${item.date}</span>
+            </div>
+            <div class="estimate-actions">
+              <button class="btn btn-secondary" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="copyToClipboard('${escapeQuotes(quoteText)}')">📋 Copy Quote</button>
+              <button class="btn btn-danger" style="padding:0.4rem 0.6rem; font-size:0.8rem;" onclick="deleteEstimate(${item.id})">Delete</button>
+            </div>
+          </div>`;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function deleteEstimate(id) {
+      savedEstimates = savedEstimates.filter(e => e.id !== id);
+      localStorage.setItem('red_cardinal_quotes', JSON.stringify(savedEstimates));
+      renderHistory();
+    }
+
+    function clearAllEstimates() {
+      if (confirm('Clear all saved estimates?')) {
+        savedEstimates = [];
+        localStorage.removeItem('red_cardinal_quotes');
+        renderHistory();
+      }
+    }
+
+    // Clipboard Helpers
+    function copyCurrentQuoteToClipboard() {
+      const calc = calculateEstimate();
+      const customer = document.getElementById('cust-name').value.trim() || 'Valued Customer';
+      const notes = document.getElementById('cust-notes').value.trim() || 'Custom Sign';
+      const text = `Red Cardinal Company - Estimate\nCustomer: ${customer}\nPiece: ${notes}\nShape: ${currentShape.toUpperCase()} (${calc.area.toFixed(1)} sq in)\nEstimated Total: $${calc.totalPrice.toFixed(2)}`;
+      
+      copyToClipboard(text);
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Copied quote to clipboard!');
+      });
+    }
+
+    function escapeQuotes(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Theme Toggle
+    function toggleTheme() {
+      const isDark = document.body.getAttribute('data-theme') === 'dark';
+      setTheme(!isDark);
+    }
+
+    function setTheme(dark) {
+      if (dark) {
+        document.body.setAttribute('data-theme', 'dark');
+        document.getElementById('theme-icon').textContent = '☀️';
+        document.getElementById('theme-text').textContent = 'Light';
+        localStorage.setItem('red_cardinal_theme', 'dark');
+      } else {
+        document.body.removeAttribute('data-theme');
+        document.getElementById('theme-icon').textContent = '🌙';
+        document.getElementById('theme-text').textContent = 'Dark';
+        localStorage.setItem('red_cardinal_theme', 'light');
+      }
+    }
+  </script>
+</body>
+</html>
